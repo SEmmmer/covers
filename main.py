@@ -11,9 +11,14 @@ import os
 def cover_list(up: str) -> list:
     video_page = webdriver.Firefox(executable_path="./geckodriver")
     video_page.get(f"https://www.youtube.com/channel/{up}/videos")
-    video_page.execute_script("window.scrollTo(0,1000)")
-    for i in video_page.find_elements_by_id("thumbnail"):
-        yield i.get_attribute("href")
+    video_page.execute_script("window.scrollTo(0,document.documentElement.clientHeight)")
+    link_list = video_page.find_elements_by_id("thumbnail")
+    try:
+        for i in link_list:
+            print(i.get_attribute("href"))
+            yield i.get_attribute("href")
+    except AttributeError:
+        print("over")
     video_page.quit()
 
 
@@ -58,11 +63,10 @@ async def video_info(video_link: str, up: str):
             website = urlopen(video_link).read().decode("utf-8")
             soup = BeautifulSoup(website, "lxml")
             date = soup.find('meta', {'itemprop': 'startDate'})
-            find_uploader = soup.find('div', {'class': 'yt-user-info'})
-            find_uploader = find_uploader.find('a', {'class': 'yt-uix-sessionlink'})
-            find_uploader = find_uploader['href']
+            find_uploader = soup.find('meta', {'itemprop': 'channelId'})['content']
+            print(find_uploader)
             ifRequested = True
-        except (AttributeError, requests.exceptions.ProxyError):
+        except AttributeError:
             print("视频信息链接失败，尝试重新连接")
             time += 1
 
@@ -72,7 +76,7 @@ async def video_info(video_link: str, up: str):
             file.close()
         return None
 
-    if find_uploader != "/channel/" + up:
+    if find_uploader != up:
         return None
 
     if date:
