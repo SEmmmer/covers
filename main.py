@@ -4,22 +4,27 @@ import asyncio
 from bs4 import BeautifulSoup
 import requests
 from urllib.request import urlopen
-from selenium import webdriver
 import os
 
 
 def cover_list(up: str) -> list:
-    video_page = webdriver.Firefox(executable_path="./geckodriver")
-    video_page.get(f"https://www.youtube.com/channel/{up}/videos")
-    video_page.execute_script("window.scrollTo(0,document.documentElement.clientHeight)")
-    link_list = video_page.find_elements_by_id("thumbnail")
+    key = "AIzaSyCOs6EnXVhUCYc_loPpJXjGx7xmoUFTEQM"
+    api_url = f"https://www.googleapis.com/youtube/v3/search?" \
+              f"key={key}&" \
+              f"channelId={up}&" \
+              f"part=snippet,id&" \
+              f"order=date&" \
+              f"maxResults=1000"
+    json = eval(urlopen(api_url).read().decode("utf-8"))
     try:
-        for i in link_list:
-            print(i.get_attribute("href"))
-            yield i.get_attribute("href")
-    except AttributeError:
-        print("over")
-    video_page.quit()
+        while True:
+            api_url_next = api_url + "&pageToken=" + json["nextPageToken"]
+            for i in json["items"]:
+                videoId = i["id"]["videoId"]
+                yield f"https://www.youtube.com/watch?v={videoId} "
+            json = eval(urlopen(api_url_next).read().decode("utf-8"))
+    except KeyError:
+        exit(0)
 
 
 async def cover_download(video_name: str, streamTime: str):
@@ -55,22 +60,22 @@ async def video_info(video_link: str, up: str):
     time = 0
     date = None
     soup = None
-    ifRequested = False
+    if_requested = False
     find_uploader = None
 
-    while not ifRequested and time < 5:
+    while not if_requested and time < 5:
         try:
             website = urlopen(video_link).read().decode("utf-8")
             soup = BeautifulSoup(website, "lxml")
             date = soup.find('meta', {'itemprop': 'startDate'})
             find_uploader = soup.find('meta', {'itemprop': 'channelId'})['content']
             print(find_uploader)
-            ifRequested = True
+            if_requested = True
         except AttributeError:
             print("视频信息链接失败，尝试重新连接")
             time += 1
 
-    if not ifRequested:
+    if not if_requested:
         with open("error_message.txt", "a+") as file:
             file.write(video_link + " message error\n")
             file.close()
@@ -116,3 +121,4 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+    # cover_list("UCdn5BQ06XqgXoAxIhbqw5Rg")
